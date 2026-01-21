@@ -51,12 +51,15 @@ python vgg/train.py
 These implementations were developed for educational purposes as part of a university course, in order to explore CNN architectures and learn encoder-decoder and skip connections.
 
 ## Results
+Img Initial            |  Mask
+:-------------------------:|:-------------------------:
+![UNet Initial picture](img_initial.png) | ![U-Net Segmentation Example](mask.png)
 
-![VGG Performance]()
+UNet Performance            |  VGG Performance
+:-------------------------:|:-------------------------:
+![U-Net Performance]() | ![VGG Performance]()
 
-![U-Net Performance]()
 
-![U-Net Segmentation Example](images/unet_result.png)
 
 
 ## Author
