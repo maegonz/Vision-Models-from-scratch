@@ -16,7 +16,7 @@ As indicated above, several kind of models were implemented, simple ones like **
 
 UNet            |  VGG16
 :-------------------------:|:-------------------------:
-![UNet Architecture](unet.webp) | ![VGG16 Architecture](VGG-16.png)
+![UNet Architecture](images/unet.webp) | ![VGG16 Architecture](images/VGG-16.png)
 
 
 ## Structure
@@ -53,7 +53,7 @@ These implementations were developed for educational purposes as part of a unive
 ## Results
 Img Initial            |  Mask
 :-------------------------:|:-------------------------:
-![UNet Initial picture](img_initial.png) | ![U-Net Segmentation Example](mask.png)
+![UNet Initial picture](images/img_initial.png) | ![U-Net Segmentation Example](images/mask.png)
 
 UNet Performance            |  VGG Performance
 :-------------------------:|:-------------------------:
