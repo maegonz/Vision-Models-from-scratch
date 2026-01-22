@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .convblock import ConvBlock
+from .convblock import DoubleConv
 from .layers import Encoder, Decoder
 
 class UNet(nn.Module):
@@ -11,7 +11,7 @@ class UNet(nn.Module):
         self.encoder3 = Encoder(feature * 2, feature * 4)
         self.encoder4 = Encoder(feature * 4, feature * 8)
 
-        self.bottleneck = ConvBlock(feature * 8, feature * 16)
+        self.bottleneck = DoubleConv(feature * 8, feature * 16)
 
         self.decoder4 = Decoder(feature * 16, feature * 8)
         self.decoder3 = Decoder(feature * 8, feature * 4)
