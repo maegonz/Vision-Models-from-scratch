@@ -168,3 +168,55 @@ def evaluating(model: nn.Module,
     avg_loss = total_loss / len(data_loader.dataset)
     avg_accuracy = 100.0 * correct / len(data_loader.dataset)
     return avg_loss, avg_accuracy
+
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+
+def prediction(model: nn.Module, 
+               data_loader: DataLoader,
+               device: torch.device,
+               cm: bool = True):
+    """
+    Evaluate a PyTorch model on a dataset with optional AMP.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The trained model to be evaluated.
+    data_loader : DataLoader
+        DataLoader providing the evaluation dataset.
+    device : torch.device
+        Device on which evaluation is performed ('cpu' or 'cuda').
+    cm : bool, optional
+        Whether to display the confusion matrix.
+        Default is True.
+
+    Returns
+    -------
+    all_preds : list[float]
+        All predicted labels over the entire dataset.
+    all_labels : list[float]
+        All true labels over the entire dataset.
+    """
+    model.eval()
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for imgs, labels in data_loader:
+            imgs, labels = imgs.to(device), labels.to(device)
+            outputs = model(imgs)
+            _, predicted = torch.max(outputs, 1)
+            all_preds.extend(predicted.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+    
+    if cm:
+        cm = confusion_matrix(all_labels, all_preds)
+        sns.heatmap(cm, fmt='d', cmap='YlGnBu')
+        plt.xlabel('Predicted')
+        plt.ylabel('True Label')
+        plt.title('Confusion Matrix')
+        plt.show()
+    
+    return all_preds, all_labels
