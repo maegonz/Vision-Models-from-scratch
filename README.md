@@ -38,7 +38,7 @@ UNet            |  VGG16
 
 1. Clone the repository:
 ```
-git clone https://github.com/yourusername/deep-learning-architectures-from-scratch.git
+git clone https://github.com/maegonz/deep-learning-architectures-from-scratch.git
 ```
 
 2. Install dependencies:
