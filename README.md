@@ -46,9 +46,10 @@ git clone https://github.com/maegonz/deep-learning-architectures-from-scratch.gi
 pip install -r requirements.txt
 ```
 
-3. Run a model:
+3. Choose a model and choose :
 ```
-python vgg/train.py
+exp_unet.ipynb
+exp_vgg.ipynb
 ```
 
 ## Learning Objectives
@@ -61,7 +62,7 @@ Img Initial            |  Mask
 
 UNet Performance            |  VGG Performance
 :-------------------------:|:-------------------------:
-![U-Net Performance]() | ![VGG Performance]()
+![U-Net Performance](images/unet_perf.png) | ![VGG Performance]()
 
 
 
