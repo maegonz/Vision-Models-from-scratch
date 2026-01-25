@@ -4,7 +4,7 @@ from .convblock import DoubleConv
 from .layers import Encoder, Decoder
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=3, out_channels=1, feature: int=64):
+    def __init__(self, in_channels=3, out_channels=11, feature: int=64):
         super(UNet, self).__init__()
         self.encoder1 = Encoder(in_channels, feature)
         self.encoder2 = Encoder(feature, feature * 2)
@@ -33,4 +33,6 @@ class UNet(nn.Module):
         dec2 = self.decoder2(dec3, enc2)
         dec1 = self.decoder1(dec2, enc1)
 
-        return self.out(dec1)
+        y = self.out(dec1)
+
+        return y
