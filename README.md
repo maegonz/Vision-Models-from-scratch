@@ -24,10 +24,14 @@ UNet            |  VGG16
 ```
 .
 ├── data/
-├── vgg/
-├── unet/
-├── requirements.txt
-└── README.md
+├── images/                 # illustration and output images
+├── notebooks/              # fcnn and cnn tensorflow implementation
+├── unet/                   # pytorch unet implementation
+├── vgg/                    # pytorch vgg implementation
+├── README.md
+├── exp_unet.ipynb          # experimentation notebooks
+├── exp_vgg.ipynb           # experimentation notebooks
+└── utils.py                # plot function
 ```
 
 ## How to run
@@ -58,7 +62,6 @@ Img Initial            |  Mask
 UNet Performance            |  VGG Performance
 :-------------------------:|:-------------------------:
 ![U-Net Performance]() | ![VGG Performance]()
-
 
 
 
