@@ -1,5 +1,15 @@
+import random
+import numpy as np
+import torch
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 def plot_metrics(
     train_losses1, val_losses1, train_accs1, val_accs1,
@@ -68,3 +78,84 @@ def plot_metrics(
 
     plt.tight_layout()
     plt.show()
+
+
+from typing import List, Optional, Union
+
+def plot_img_mask(img: Union[torch.tensor, List[torch.tensor]], 
+                  mask: Union[torch.tensor, List[torch.tensor]], 
+                  pred_mask: Union[torch.tensor, List[torch.tensor]]=None, 
+                  num_samples: int=5,
+                  class_names: List[str]=None):
+    """
+    Plot an input image with its ground truth mask and optional prediction.
+
+    Parameters
+    ----------
+    img : torch.Tensor or list[torch.Tensor]
+        Image tensor in ``(C, H, W)`` format.
+    mask : torch.Tensor or list[torch.Tensor]
+        Ground truth mask tensor in ``(H, W)`` format.
+    pred_mask : torch.Tensor or list[torch.Tensor], optional
+        Predicted mask tensor in ``(H, W)`` format. Default is ``None``.
+    num_samples : int, optional
+        Number of samples to plot. Default is ``5``.
+    class_names : list[str], optional
+        Class names corresponding to mask values. Default is ``None``.
+    """
+
+    if isinstance(img, list):
+        img = img[:num_samples]
+    if isinstance(mask, list):
+        mask = mask[:num_samples]
+    if pred_mask is not None and isinstance(pred_mask, list):
+        pred_mask = pred_mask[:num_samples]
+
+
+    plt.figure(figsize=(15, 5))
+
+    plt.subplot(1, 3 if pred_mask is not None else 2, 1)
+    plt.imshow(img)
+    plt.title("Input Image")
+    plt.axis('off')
+
+    plt.subplot(1, 3 if pred_mask is not None else 2, 2)
+    plt.imshow(mask, alpha=0.5)
+    plt.title("Ground Truth Mask")
+    plt.axis('off')
+
+    if pred_mask is not None:
+        pred_mask = pred_mask
+        plt.subplot(1, 3, 3)
+        plt.imshow(pred_mask, alpha=0.5)
+        plt.title("Predicted Mask")
+        plt.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+def unnormalize_image(img: torch.Tensor, 
+                      mean: List[float]=[0.485,0.456,0.406], 
+                      std: List[float]=[0.229,0.224,0.225]):
+    """
+    Unnormalize an image tensor.
+
+    Parameters
+    ----------
+    img : torch.Tensor
+        Image tensor in ``(C, H, W)`` format.
+    mean : list[float]
+        Mean values for each channel.
+    std : list[float]
+        Standard deviation values for each channel.
+
+    Returns
+    -------
+    torch.Tensor
+        Unnormalized image tensor in ``(C, H, W)`` format.
+    """
+    mean = torch.tensor(mean).view(-1, 1, 1)
+    std = torch.tensor(std).view(-1, 1, 1)
+    
+    unnormalized_img = img * std + mean
+    return unnormalized_img
