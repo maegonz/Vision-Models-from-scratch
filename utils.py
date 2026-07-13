@@ -86,7 +86,9 @@ def plot_img_mask(img: Union[torch.tensor, List[torch.tensor]],
                   mask: Union[torch.tensor, List[torch.tensor]], 
                   pred_mask: Union[torch.tensor, List[torch.tensor]]=None, 
                   num_samples: int=5,
-                  class_names: List[str]=None):
+                  class_names: List[str]=None,
+                  save_path: Optional[str]=None,
+                  show: bool=True):
     """
     Plot an input image with its ground truth mask and optional prediction.
 
@@ -108,9 +110,11 @@ def plot_img_mask(img: Union[torch.tensor, List[torch.tensor]],
         img = img[:num_samples]
     if isinstance(mask, list):
         mask = mask[:num_samples]
-    if pred_mask is not None and isinstance(pred_mask, list):
+    if isinstance(pred_mask, list):
         pred_mask = pred_mask[:num_samples]
 
+    img = unnormalize_image(img) if isinstance(img, torch.Tensor) else [unnormalize_image(i) for i in img]
+    img = img.permute(1, 2, 0).cpu().numpy() if isinstance(img, torch.Tensor) else [i.permute(1, 2, 0).cpu().numpy() for i in img]
 
     plt.figure(figsize=(15, 5))
 
@@ -120,19 +124,25 @@ def plot_img_mask(img: Union[torch.tensor, List[torch.tensor]],
     plt.axis('off')
 
     plt.subplot(1, 3 if pred_mask is not None else 2, 2)
-    plt.imshow(mask, alpha=0.5)
+    plt.imshow(mask, alpha=0.5, cmap='tab20')
     plt.title("Ground Truth Mask")
     plt.axis('off')
 
     if pred_mask is not None:
         pred_mask = pred_mask
         plt.subplot(1, 3, 3)
-        plt.imshow(pred_mask, alpha=0.5)
+        plt.imshow(pred_mask, alpha=0.5, cmap='tab20')
         plt.title("Predicted Mask")
         plt.axis('off')
 
     plt.tight_layout()
-    plt.show()
+    if save_path:
+        plt.savefig(save_path, bbox_inches='tight')
+        plt.close()
+    if show:
+        plt.show()
+        plt.close()
+
 
 def unnormalize_image(img: torch.Tensor, 
                       mean: List[float]=[0.485,0.456,0.406], 
@@ -159,3 +169,32 @@ def unnormalize_image(img: torch.Tensor,
     
     unnormalized_img = img * std + mean
     return unnormalized_img
+
+import glob
+from PIL import Image
+
+def create_gif(image_dir: str, output_path: str, duration_ms: int=200):
+    """
+    Create a GIF from a list of image paths.
+
+    Parameters
+    ----------
+    image_paths : list[str]
+        List of paths to the images to be included in the GIF.
+    output_path : str
+        Path where the GIF will be saved.
+    duration : float, optional
+        Duration of each frame in seconds. Default is 0.5 seconds.
+    """
+    image_paths = sorted(glob.glob(f"{image_dir}/*.png"))
+    if not image_paths:
+        raise ValueError(f"No images found in directory: {image_dir}")
+    
+    images = [Image.open(img) for img in image_paths]
+    images[0].save(
+        output_path,
+        save_all=True,
+        append_images=images[1:],
+        duration=duration_ms,
+        loop=0
+    )

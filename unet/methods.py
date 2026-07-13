@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 from torch.amp import autocast, GradScaler
 from tqdm import tqdm
 from sklearn.metrics import confusion_matrix
+from utils import plot_img_mask
+from typing import Union
 
 
 def training(model: nn.Module,
@@ -16,7 +18,8 @@ def training(model: nn.Module,
             device: torch.device,
             epochs: int,
             val_loader: DataLoader=None,
-            use_amp: bool=True):
+            use_amp: bool=True,
+            save_model: Union[bool, str]=False):
     """
     Train a PyTorch model with optional Automatic Mixed Precision.
 
@@ -104,11 +107,15 @@ def training(model: nn.Module,
 
         if val_loader is not None:
             val_loss, val_accuracy = evaluating(
-                model, val_loader, criterion, device, use_amp
+                model, val_loader, criterion, device, use_amp=use_amp, save_path=f"./unet/progress_steps/epoch_{epoch+1}_val.png"
             )
             
             val_losses.append(val_loss)
             val_accuracies.append(val_accuracy)
+
+            if val_accuracy > max(val_accuracies[:-1], default=0) and save_model:
+                save_path = save_model if isinstance(save_model, str) else f"./unet/saved/unet_camvid_best_epoch_{epoch+1}.pth"
+                torch.save(model.state_dict(), save_path)
 
             epoch_tqdm.set_postfix(
                 train_loss=epoch_loss,
@@ -124,6 +131,7 @@ def evaluating(model: nn.Module,
                data_loader: DataLoader,
                criterion: nn.Module,
                device: torch.device,
+               save_path: str = "./unet/progress_steps/",
                use_amp: bool = True):
     """
     Evaluate a PyTorch model on a dataset with optional AMP.
@@ -156,7 +164,7 @@ def evaluating(model: nn.Module,
     total_pixels = 0
 
     with torch.no_grad():
-        for imgs, masks in data_loader:
+        for k, (imgs, masks) in enumerate(data_loader):
             imgs, masks = imgs.to(device), masks.to(device)
 
             with autocast(device_type=device.type, enabled=use_amp):
@@ -167,6 +175,10 @@ def evaluating(model: nn.Module,
             predicted = torch.argmax(outputs, dim=1)
             correct_pixels += (predicted == masks).sum().item()
             total_pixels += masks.numel()
+
+            if k == 0:
+                img_plot, mask_plot, pred_plot = imgs[0].cpu(), masks[0].cpu(), predicted[0].cpu()
+                plot_img_mask(img_plot, mask_plot, pred_plot, save_path=save_path, show=False)
 
             del outputs, loss, imgs, masks
 
@@ -180,7 +192,7 @@ def evaluating(model: nn.Module,
 def prediction(model: nn.Module, 
                data_loader: DataLoader,
                device: torch.device,
-               cm: bool = True):
+               cm: bool = True,):
     """
     Evaluate a PyTorch model on a dataset with optional AMP.
 
