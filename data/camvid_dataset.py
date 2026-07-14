@@ -6,7 +6,7 @@ from glob import glob
 from typing import Union
 from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+from torchvision.transforms import v2
 from PIL import Image
 
 # directories containing images and their masks
@@ -50,14 +50,14 @@ class CamVidDataset(Dataset):
         self.imgs_names = sorted(os.listdir(self.imgs_dir))
 
         # Image transformation
-        self.imgs_transforms = transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])  # mean and std of ImageNet
+        self.imgs_transforms = v2.Compose([
+            v2.Resize((256, 256)),
+            v2.ToTensor(),
+            v2.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])  # mean and std of ImageNet
         ])
-        self.masks_transforms = transforms.Compose(
+        self.masks_transforms = v2.Compose(
             [
-                transforms.Resize((256, 256))
+                v2.Resize((256, 256))
             ]
         )
 

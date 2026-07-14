@@ -16,8 +16,8 @@ def plot_metrics(
     epochs,
     train_losses2=None, val_losses2=None, train_accs2=None, val_accs2=None,
     opt1_name="Optimizer 1",
-    opt2_name="Optimizer 2"
-):
+    opt2_name="Optimizer 2"):
+    
     sns.set_theme(style="whitegrid", context="talk")
     epochs_range = range(1, epochs + 1)
 
@@ -175,18 +175,20 @@ from PIL import Image
 
 def create_gif(image_dir: str, output_path: str, duration_ms: int=200):
     """
-    Create a GIF from a list of image paths.
+    Create a GIF from images in a directory.
 
     Parameters
     ----------
-    image_paths : list[str]
-        List of paths to the images to be included in the GIF.
+    image_dir : str
+        Directory containing the images to be included in the GIF.
     output_path : str
         Path where the GIF will be saved.
-    duration : float, optional
-        Duration of each frame in seconds. Default is 0.5 seconds.
+    duration_ms : int, optional
+        Duration of each frame in milliseconds. Default is 200 ms.
     """
-    image_paths = sorted(glob.glob(f"{image_dir}/*.png"))
+    image_paths = [f'./unet/saved/outputs/epoch_{i}_val.png' for i in range(1, 140) if glob.glob(f'./unet/saved/outputs/epoch_{i}_val.png')]
+    print(f"Creating GIF from {len(image_paths)} images in {image_dir}...")
+    print(f"Saving GIF to {output_path} with frame duration {duration_ms} ms.")
     if not image_paths:
         raise ValueError(f"No images found in directory: {image_dir}")
     

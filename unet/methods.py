@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -9,6 +10,10 @@ from tqdm import tqdm
 from sklearn.metrics import confusion_matrix
 from utils import plot_img_mask
 from typing import Union
+from copyreg import pickle
+
+import time
+from torch.profiler import profile, tensorboard_trace_handler, ProfilerActivity
 
 
 def training(model: nn.Module,
@@ -59,6 +64,8 @@ def training(model: nn.Module,
     """
 
     model.to(device)
+    # model = torch.compile(model)
+
     use_amp = use_amp and device.type == "cuda"
     scaler = GradScaler(enabled=use_amp)
 
@@ -69,53 +76,48 @@ def training(model: nn.Module,
 
     for epoch in epoch_tqdm:
         model.train()
-        running_loss = 0.0
-        correct_pixels = 0
-        total_pixels = 0
+        running_loss = torch.tensor(0.0, device=device)
+        correct_pixels = torch.tensor(0, device=device)
+        total_pixels = torch.tensor(0, device=device)
 
-        loop = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}", leave=False)
 
-        for imgs, masks in loop:
-            imgs, masks = imgs.to(device), masks.to(device)
+        for j, (imgs, masks) in enumerate(train_loader):
+
+            imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
             
-            optimizer.zero_grad(set_to_none=True)
-
-            with autocast(device_type=device.type, enabled=use_amp):
+            with autocast(device_type=device.type, enabled=use_amp, dtype=torch.bfloat16):
                 outputs = model(imgs)
                 loss = criterion(outputs, masks)
+
+            optimizer.zero_grad(set_to_none=True)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
-            running_loss += loss.item() * imgs.size(0)
+            running_loss += loss.detach() * imgs.size(0)
             predicted = torch.argmax(outputs, dim=1)
-            correct_pixels += (predicted == masks).sum().item()
+            correct_pixels += (predicted == masks).sum().detach()
             total_pixels += masks.numel()
-
-            loop.set_postfix(loss=loss.item())
-
-            del outputs, loss, imgs, masks
-
-        torch.cuda.empty_cache()
-
-        epoch_loss = running_loss / len(train_loader.dataset)
-        epoch_acc = 100.0 * correct_pixels / total_pixels
+            
+        epoch_loss = running_loss.item() / len(train_loader.dataset)
+        epoch_acc = 100.0 * correct_pixels.item() / total_pixels.item()
 
         train_losses.append(epoch_loss)
         train_accuracies.append(epoch_acc)
 
         if val_loader is not None:
+
             val_loss, val_accuracy = evaluating(
-                model, val_loader, criterion, device, use_amp=use_amp, save_path=f"./unet/progress_steps/epoch_{epoch+1}_val.png"
+                model, val_loader, criterion, device, use_amp=use_amp, plot_output=False
             )
             
             val_losses.append(val_loss)
             val_accuracies.append(val_accuracy)
 
-            if val_accuracy > max(val_accuracies[:-1], default=0) and save_model:
-                save_path = save_model if isinstance(save_model, str) else f"./unet/saved/unet_camvid_best_epoch_{epoch+1}.pth"
-                torch.save(model.state_dict(), save_path)
+            # if val_accuracy > max(val_accuracies[:-1], default=0) and save_model:
+            save_path = save_model if isinstance(save_model, str) else f"./unet/saved/best_models/unet_camvid_best_epoch_{epoch+1}.pth"
+            torch.save(model.state_dict(), save_path)
 
             epoch_tqdm.set_postfix(
                 train_loss=epoch_loss,
@@ -123,6 +125,11 @@ def training(model: nn.Module,
             )
         else:
             epoch_tqdm.set_postfix(train_loss=epoch_loss)
+    
+    np.save("./unet/saved/metrics/train_losses.npy", train_losses)
+    np.save("./unet/saved/metrics/train_accuracies.npy", train_accuracies)
+    np.save("./unet/saved/metrics/val_losses.npy", val_losses)
+    np.save("./unet/saved/metrics/val_accuracies.npy", val_accuracies)
 
     return train_losses, train_accuracies, val_losses, val_accuracies
 
@@ -131,7 +138,8 @@ def evaluating(model: nn.Module,
                data_loader: DataLoader,
                criterion: nn.Module,
                device: torch.device,
-               save_path: str = "./unet/progress_steps/",
+               plot_output: bool = True,
+               save_path: str = "./unet/saved/outputs/",
                use_amp: bool = True):
     """
     Evaluate a PyTorch model on a dataset with optional AMP.
@@ -159,79 +167,79 @@ def evaluating(model: nn.Module,
     """
 
     model.eval()
-    total_loss = 0.0
-    correct_pixels = 0
-    total_pixels = 0
+    total_loss = torch.tensor(0.0, device=device)
+    correct_pixels = torch.tensor(0, device=device)
+    total_pixels = torch.tensor(0, device=device)
 
     with torch.no_grad():
         for k, (imgs, masks) in enumerate(data_loader):
-            imgs, masks = imgs.to(device), masks.to(device)
+            imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
 
             with autocast(device_type=device.type, enabled=use_amp):
                 outputs = model(imgs)
                 loss = criterion(outputs, masks)
 
-            total_loss += loss.item() * imgs.size(0)
+            total_loss += loss.detach() * imgs.size(0)
             predicted = torch.argmax(outputs, dim=1)
-            correct_pixels += (predicted == masks).sum().item()
+            correct_pixels += (predicted == masks).sum().detach()
             total_pixels += masks.numel()
 
-            if k == 0:
-                img_plot, mask_plot, pred_plot = imgs[0].cpu(), masks[0].cpu(), predicted[0].cpu()
+            if k == 2 and plot_output:
+                img_plot, mask_plot, pred_plot = imgs[k].cpu(), masks[k].cpu(), predicted[k].cpu()
                 plot_img_mask(img_plot, mask_plot, pred_plot, save_path=save_path, show=False)
 
             del outputs, loss, imgs, masks
 
-        torch.cuda.empty_cache()
+        # torch.cuda.empty_cache()
 
-    avg_loss = total_loss / len(data_loader.dataset)
-    avg_accuracy = 100.0 * correct_pixels / total_pixels
+    avg_loss = total_loss.item() / len(data_loader.dataset)
+    avg_accuracy = 100.0 * correct_pixels.item() / total_pixels.item()
     return avg_loss, avg_accuracy
 
 
-def prediction(model: nn.Module, 
-               data_loader: DataLoader,
-               device: torch.device,
-               cm: bool = True,):
-    """
-    Evaluate a PyTorch model on a dataset with optional AMP.
+# def prediction(model: nn.Module, 
+#                data_loader: DataLoader,
+#                device: torch.device,
+#                cm: bool = True,):
+#     """
+#     Evaluate a PyTorch model on a dataset with optional AMP.
 
-    Parameters
-    ----------
-    model : nn.Module
-        The trained model to be evaluated.
-    data_loader : DataLoader
-        DataLoader providing the evaluation dataset.
-    device : torch.device
-        Device on which evaluation is performed ('cpu' or 'cuda').
-    cm : bool, optional
-        Whether to display the confusion matrix.
-        Default is True.
+#     Parameters
+#     ----------
+#     model : nn.Module
+#         The trained model to be evaluated.
+#     data_loader : DataLoader
+#         DataLoader providing the evaluation dataset.
+#     device : torch.device
+#         Device on which evaluation is performed ('cpu' or 'cuda').
+#     cm : bool, optional
+#         Whether to display the confusion matrix.
+#         Default is True.
 
-    Returns
-    -------
-    all_preds : list[float]
-        All predicted masks over the entire dataset.
-    all_masks : list[float]
-        All true masks over the entire dataset.
-    """
-    model.eval()
-    all_preds = []
-    all_masks = []
-    with torch.no_grad():
-        for imgs, masks in data_loader:
-            imgs, masks = imgs.to(device), masks.to(device)
-            outputs = model(imgs)
-            _, predicted = torch.max(outputs, 1)
-            all_preds.extend(predicted.cpu().numpy())
-            all_masks.extend(masks.cpu().numpy())
+#     Returns
+#     -------
+#     all_preds : list[float]
+#         All predicted masks over the entire dataset.
+#     all_masks : list[float]
+#         All true masks over the entire dataset.
+#     """
+#     model.eval()
+#     all_preds = []
+#     all_masks = []
+#     with torch.no_grad():
+#         for imgs, masks in data_loader:
+#             imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
+#             outputs = model(imgs)
+#             _, predicted = torch.max(outputs, 1)
+#             all_preds.extend(predicted.cpu().numpy())
+#             all_masks.extend(masks.cpu().numpy())
     
-    if cm:
-        cm = confusion_matrix(all_masks, all_preds)
-        sns.heatmap(cm, fmt='d', cmap='YlGnBu')
-        plt.xlabel('Predicted')
-        plt.ylabel('True Label')
-        plt.title('Confusion Matrix')
-        plt.show()
+#     if cm:
+#         cm = confusion_matrix(all_masks, all_preds)
+#         sns.heatmap(cm, fmt='d', cmap='YlGnBu')
+#         plt.xlabel('Predicted')
+#         plt.ylabel('True Label')
+#         plt.title('Confusion Matrix')
+#         plt.show()
     
-    return all_preds, all_masks
+#     return all_preds, all_masks
